@@ -33,6 +33,7 @@ Ordinary native builds use the committed artifacts and need no source-repo check
 ## Repository setup after extraction
 
 - Require the `macos` check here for native builds. The source repo retains that required name as a small Ubuntu boundary check, so organization settings need no change.
+- This repository is currently private. Sparkle needs public appcast and download URLs. Release workflows guard against private feeds; configure public distribution before publishing or bridging installed apps.
 - An owner must configure Apple signing/notarization and Sparkle secrets here before releasing. See the release workflows for names.
 - Release build numbers use Unix timestamps so the new repository run counter cannot downgrade Sparkle versions.
 - Update feeds embedded in this source now point here. Existing installations still use the old repository feed;

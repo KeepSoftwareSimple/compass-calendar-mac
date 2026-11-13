@@ -43,8 +43,14 @@ jobs:
         id: gate
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if [ "$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.private')" != "false" ]; then
+            echo '::notice::Dev channel skipped: Sparkle requires public appcast and download URLs. Configure public distribution first.'
+            echo "enabled=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
           public_key=$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' Resources/Info.plist)
           if [ -z "${SPARKLE_PRIVATE_KEY:-}" ] || [ -z "$public_key" ]; then
             echo "::notice::Dev channel skipped: set SPARKLE_PRIVATE_KEY and SUPublicEDKey in Resources/Info.plist to enable it."
