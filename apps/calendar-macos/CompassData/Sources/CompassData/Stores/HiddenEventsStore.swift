@@ -48,6 +48,10 @@ public final class HiddenEventsStore {
         self.source = source
     }
 
+    func loadCached() throws {
+        hiddenEventIds = mergePendingIntent(into: Set(try repository.fetchAll()))
+    }
+
     public func load() async throws {
         switch source {
         case .remote:

@@ -70,14 +70,14 @@ extension NativeCalendarRootModel {
         let range = CalendarWindowMath.notifiableEventQueryRange(now: referenceNow)
         let key = EventRangeQueryKey(
             scope: .day,
-            source: .remote,
+            source: eventsStore.source,
             start: range.startDate,
             end: range.endDate)
         do {
-            _ = try await eventsStore.loadRange(key: key)
-            guard revision == sessionRevision, isSignedIn || eventsStore.source == .local else { return }
-            let all = try eventsStore.fetchAllEvents()
-            sidebandEvents = eventsInNotifiableRange(from: all, range: range)
+            let events = try await eventsStore.loadRange(key: key)
+            guard !Task.isCancelled, revision == sessionRevision,
+                  isSignedIn || eventsStore.source == .local else { return }
+            sidebandEvents = eventsInNotifiableRange(from: events, range: range)
         } catch {
             guard revision == sessionRevision else { return }
             sidebandEvents = []

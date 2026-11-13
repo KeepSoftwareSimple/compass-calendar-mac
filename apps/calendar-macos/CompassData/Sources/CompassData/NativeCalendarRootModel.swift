@@ -419,13 +419,14 @@ public final class NativeCalendarRootModel {
         await configStore.load()
         await configureAnalyticsFromConfig()
         await authStore.bootstrap()
-        await lifeStore.load(userId: authStore.userId, remote: environment.apiClient.user)
+        guard !Task.isCancelled else { return }
         if demoPresentation != nil {
             authStore.closeModal()
         }
         if isSignedIn, (try? AccountCacheIdentity.matches(userId: authStore.userId, repository: environment.userMetadataRepository)) != true {
             guard resetAccountCaches(discardDraft: false) else { return }
         }
+        let revision = sessionRevision
         try? DemoDataSeeder.seedIfNeeded(
             localEvents: environment.localEventRepository,
             metadata: environment.userMetadataRepository,
@@ -433,10 +434,18 @@ public final class NativeCalendarRootModel {
         cachedDemoEventIds = (try? environment.localEventRepository.demoEventIds()) ?? []
         isDemoEventsBannerDismissed = DemoEventsBannerState.isDismissed(
             repository: environment.userMetadataRepository)
-        try? await hiddenEventsStore.load()
+        // Account identity is checked above before any cached presentation is published.
+        try? hiddenEventsStore.loadCached()
+        async let hiddenLoad: Void? = try? hiddenEventsStore.load()
         await reloadCalendars()
-        await refreshVisibleRange()
+        _ = await hiddenLoad
+        guard revision == sessionRevision, !Task.isCancelled else { return }
+        await refreshVisibleRange(updateSideband: false)
+        guard revision == sessionRevision, !Task.isCancelled else { return }
+        async let lifeLoad: Void = lifeStore.load(userId: authStore.userId, remote: environment.apiClient.user)
         await refreshSideband()
+        await lifeLoad
+        guard revision == sessionRevision, !Task.isCancelled else { return }
         applyParityCapturePresentationIfNeeded()
         if UITestLaunchPolicy.showPageJumpHintsForUITest {
             setPageJumpHintsVisible(true)
@@ -1065,7 +1074,7 @@ public final class NativeCalendarRootModel {
         }
     }
 
-    func refreshVisibleRange() async {
+    func refreshVisibleRange(updateSideband: Bool = true) async {
         rangeRefreshRevision += 1
         let refreshRevision = rangeRefreshRevision
         let revision = sessionRevision
@@ -1101,7 +1110,7 @@ public final class NativeCalendarRootModel {
                   isSignedIn || eventsStore.source == .local else { return }
             loadedEvents = try eventsStore.fetchAllEvents()
             rebuildPresentation()
-            await refreshSideband()
+            if updateSideband { await refreshSideband() }
         } catch {
             Self.log.error("refresh visible range failed: \(String(describing: error), privacy: .public)")
         }
@@ -1125,6 +1134,7 @@ public final class NativeCalendarRootModel {
             repository: environment.userMetadataRepository)) == true,
            let cached = try? calendarRepository.fetchAll() {
             calendars = cached
+            loadedEvents = (try? eventsStore.fetchAllEvents()) ?? []
             rebuildPresentation()
         }
         do {

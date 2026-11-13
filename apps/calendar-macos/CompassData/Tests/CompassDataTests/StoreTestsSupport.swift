@@ -46,11 +46,13 @@ final class MockEventsAPI: EventsAPIProtocol, @unchecked Sendable {
 
 final class MockUserAPI: HiddenEventsRemoteClient, @unchecked Sendable {
     var hiddenIds: [String] = []
+    var hiddenIdsHandler: (() async throws -> [String])?
     var setHiddenError: Error?
     var setHiddenHandler: ((SetEventHiddenInput) async throws -> [String])?
 
     func hiddenEventIds() async throws -> [String] {
-        hiddenIds
+        if let hiddenIdsHandler { return try await hiddenIdsHandler() }
+        return hiddenIds
     }
 
     func setHiddenEvents(_ input: SetEventHiddenInput) async throws -> [String] {
