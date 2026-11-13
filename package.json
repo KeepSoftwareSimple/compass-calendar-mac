@@ -1,0 +1,13 @@
+{
+  "name": "compass-calendar-mac",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "test": "bash .github/scripts/test-macos-swift-packages.sh && bash .github/scripts/test-macos-xcodebuild.sh",
+    "test:contracts": "bun test packages/scripts/src/testing/macos-ci-contract.test.ts packages/scripts/src/testing/macos-ui-shards.test.ts",
+    "test:source-contracts": "bun test packages/scripts/src/testing/occurrence-id-format.test.ts",
+    "verify": "bash .github/scripts/verify.sh",
+    "test:macos": "bash .github/scripts/test-macos-xcodebuild.sh",
+    "test:macos:packages": "bash .github/scripts/test-macos-swift-packages.sh"
+  }
+}
