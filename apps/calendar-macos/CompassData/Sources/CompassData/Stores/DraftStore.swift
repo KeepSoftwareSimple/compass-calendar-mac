@@ -59,6 +59,11 @@ public final class DraftStore {
         }
     }
 
+    func restoreFailedSave(draft: GridEventDraft, activity: DraftNudgeActivity, baseline: GridEventDraft?) {
+        startGridDraft(activity: activity, draft: draft)
+        if status.isFormOpen { formBaseline = baseline }
+    }
+
     public func setGridDraft(_ draft: GridEventDraft?) {
         guard let draft else {
             discard()

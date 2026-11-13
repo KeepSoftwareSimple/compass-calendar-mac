@@ -210,7 +210,11 @@ extension NativeCalendarRootModel {
         let snapshot = event
         do {
             try await eventsStore.deleteOptimistic(id: event.id, scope: scope)
-        } catch {}
+        } catch {
+            guard revision == sessionRevision else { return }
+            reportSaveFailure(error, action: "delete")
+            return
+        }
         guard revision == sessionRevision else { return }
         loadedEvents.removeAll { $0.id == event.id }
         refreshLoadedEvents()
@@ -383,7 +387,7 @@ extension NativeCalendarRootModel {
             refreshLoadedEvents()
             rebuildPresentation()
         } catch {
-            statusToastStore.show(id: "undo-status", message: "Could not restore event")
+            reportSaveFailure(error, action: "restore")
         }
     }
 

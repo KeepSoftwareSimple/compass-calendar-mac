@@ -137,6 +137,7 @@ public final class NativeCalendarRootModel {
     }
     private var refreshTask: Task<Void, Never>?
     private var rangeRefreshRevision = 0
+    var draftSaveRevision = 0
     var focusedEventNudgePersistTask: Task<Void, Never>?
     var focusedEventNudgePersistSerial = 0
     var focusLayoutCards: [FocusLayoutCard] = []
@@ -255,6 +256,9 @@ public final class NativeCalendarRootModel {
         )
         settingsStore.onDevicePreferencesChanged = { [weak self] in
             self?.rebuildPresentation()
+        }
+        eventsStore.onMutationFailed = { [weak self] error in
+            self?.reportSaveFailure(error, action: "save")
         }
         eventsStore.onWriteLanded = { [weak self] isNewCreate in
             self?.noteEventWriteLanded(isNewCreate: isNewCreate)
