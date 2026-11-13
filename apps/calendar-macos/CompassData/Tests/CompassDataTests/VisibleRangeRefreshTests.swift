@@ -27,9 +27,14 @@ final class VisibleRangeRefreshTests: XCTestCase {
         model.viewStore.anchorDate = try XCTUnwrap(CompassDateParsing.parseInEffectiveTimeZone("2026-02-01T00:00:00Z"))
         api.listHandler = { _ in [] }
         await model.refreshVisibleRange()
-        XCTAssertTrue(model.loadedEvents.isEmpty)
+        let currentPresentation = model.timeGridState
+        let cards = currentPresentation.snapshot(colWidths: currentPresentation.resolvedColumnWidths()).cards
+        XCTAssertFalse(cards.contains { $0.eventId == event.id.rawValue })
         await release.signal()
         await oldRefresh.value
-        XCTAssertTrue(model.loadedEvents.isEmpty, "An older request must not paint the newly selected week")
+        XCTAssertEqual(model.timeGridState, currentPresentation,
+            "An older request must not repaint the newly selected week")
+        XCTAssertTrue(model.loadedEvents.contains { $0.id == event.id },
+            "Offscreen context must remain available for notification and recurrence actions")
     }
 }

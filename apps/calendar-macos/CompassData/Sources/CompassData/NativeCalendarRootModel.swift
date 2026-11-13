@@ -809,12 +809,16 @@ public final class NativeCalendarRootModel {
         let hiddenIds = gridHiddenEventIdStrings
         let demoIds = demoEventIds
         let referenceNow = self.referenceNow
+        let range = queryRange()
         var scenario = GridLayoutScenarioBuilder.build(
             layoutMode: layoutMode(),
             visibleDateKeys: visibleDateKeys(),
             referenceNow: referenceNow,
             calendars: visibleCalendars(),
-            events: loadedEvents.filter { calendarVisibilityStore.isVisible($0.calendarId.rawValue) },
+            events: loadedEvents.filter {
+                calendarVisibilityStore.isVisible($0.calendarId.rawValue)
+                    && EventScheduleBounds.intersectsQueryRange(event: $0, start: range.startDate, end: range.endDate)
+            },
             hiddenEventIds: hiddenIds,
             demoEventIds: demoIds
         )
@@ -1076,10 +1080,18 @@ public final class NativeCalendarRootModel {
             end: range.endDate
         )
         do {
-            let events = try await eventsStore.loadRange(key: key) { [weak self] cached in
+            _ = try await eventsStore.loadRange(key: key) { [weak self] cached in
                 guard let self, !Task.isCancelled, revision == self.sessionRevision,
                       refreshRevision == self.rangeRefreshRevision else { return }
-                self.loadedEvents = cached
+                // Keep series masters and offscreen notification/search context available.
+                if self.loadedEvents.isEmpty {
+                    self.loadedEvents = (try? self.eventsStore.fetchAllEvents()) ?? cached
+                } else {
+                    let retained = self.loadedEvents.filter {
+                        !EventScheduleBounds.intersectsQueryRange(event: $0, start: key.start, end: key.end)
+                    }
+                    self.loadedEvents = retained + cached
+                }
                 self.rebuildPresentation()
             }
             guard !Task.isCancelled, revision == sessionRevision,
@@ -1087,8 +1099,7 @@ public final class NativeCalendarRootModel {
                   viewStore.view != .life, eventsStore.source == source,
                   queryRange().startDate == key.start, queryRange().endDate == key.end,
                   isSignedIn || eventsStore.source == .local else { return }
-            // Local recurrence, search, and undo share the complete expanded collection.
-            loadedEvents = source == .local ? try eventsStore.fetchAllEvents() : events
+            loadedEvents = try eventsStore.fetchAllEvents()
             rebuildPresentation()
             await refreshSideband()
         } catch {
