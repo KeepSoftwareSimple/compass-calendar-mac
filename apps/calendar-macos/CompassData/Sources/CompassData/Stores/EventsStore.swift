@@ -98,6 +98,15 @@ public final class EventsStore {
         return try repository.fetchAll()
     }
 
+    func searchEvents(_ query: EventListQuery) async throws -> [Event] {
+        guard remoteSessionReady else { throw CancellationError() }
+        let revision = remoteSessionRevision
+        let events = try await eventsAPI.list(query)
+        try Task.checkCancellation()
+        guard revision == remoteSessionRevision else { throw CancellationError() }
+        return events
+    }
+
     public func loadRange(
         key: EventRangeQueryKey,
         onCachedEvents: (([Event]) -> Void)? = nil
