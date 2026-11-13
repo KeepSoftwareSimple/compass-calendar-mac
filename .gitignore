@@ -60,3 +60,11 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Generated local outputs
+node_modules/
+.DS_Store
+**/__pycache__/
+apps/calendar-macos/Compass.xcodeproj/
+apps/calendar-macos/build/
+build/
