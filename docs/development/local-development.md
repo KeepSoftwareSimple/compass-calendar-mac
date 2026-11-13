@@ -14,12 +14,11 @@ Shared contracts and shortcuts come from TypeScript generators (run on Linux
 before you push Swift changes):
 
 ```bash
-bun cli contracts:swift --check
-bun cli desktop:export --check
+bash .github/scripts/sync-from-web.sh /absolute/path/to/compass-calendar
 ```
 
-Regenerate without `--check` when you change Zod schemas, shortcuts, theme
-tokens, or parity fixtures.
+Run the sync script with a clean source checkout when updating Zod schemas, shortcuts, theme
+tokens, or parity fixtures. It generates and checks the native artifacts and records the source revision.
 
 ### Prerequisites
 

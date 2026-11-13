@@ -9,7 +9,6 @@ run the general `AGENT_LOOP` queue and you do not touch unrelated milestones.
 - `docs/development/macos-parity-flow.md`
 - `docs/CI-CD/macos-parity-loop-routine.md`
 - `docs/acceptance/macos-parity/checkpoint.md`
-- `.agents/skills/ship/SKILL.md`
 
 ## Scope
 
@@ -26,7 +25,8 @@ state alone.
    and only when native product code changed. Do not re-dispatch on a timer or
    after every commit; the required `macos` check already runs on the PR.
    Download logs before ready.
-3. Open a draft PR with `Fixes #4783` (or the linked child issue if one exists).
+3. Open a draft PR referencing the configured native parent issue (or its linked child issue).
+   Historical source-repository issue numbers must never be used as native issue numbers.
 4. Mark ready and run `gh pr merge --auto` once verify is satisfied.
 
 ## Boundaries
