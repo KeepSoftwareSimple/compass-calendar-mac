@@ -56,6 +56,7 @@ public final class HiddenEventsStore {
         switch source {
         case .remote:
             let ids = try await remoteClient.hiddenEventIds()
+            try Task.checkCancellation()
             hiddenEventIds = mergePendingIntent(into: Set(ids.map { EventId(rawValue: $0) }))
             try repository.replaceAll(eventIds: Array(hiddenEventIds))
         case .local:

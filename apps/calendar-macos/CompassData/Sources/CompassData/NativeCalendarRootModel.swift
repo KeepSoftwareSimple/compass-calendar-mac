@@ -438,6 +438,7 @@ public final class NativeCalendarRootModel {
         try? hiddenEventsStore.loadCached()
         async let hiddenLoad: Void? = try? hiddenEventsStore.load()
         await reloadCalendars()
+        guard revision == sessionRevision, !Task.isCancelled else { return }
         _ = await hiddenLoad
         guard revision == sessionRevision, !Task.isCancelled else { return }
         await refreshVisibleRange(updateSideband: false)
@@ -1139,7 +1140,7 @@ public final class NativeCalendarRootModel {
         }
         do {
             let remote = try await environment.apiClient.calendars.list()
-            guard revision == sessionRevision, isSignedIn else { return }
+            guard !Task.isCancelled, revision == sessionRevision, isSignedIn else { return }
             var merged = remote
             if SystemCalendarConnectionStore.isConnected {
                 let cached = try calendarRepository.fetchAll()
