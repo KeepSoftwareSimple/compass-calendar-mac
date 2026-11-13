@@ -190,6 +190,10 @@ extension NativeCalendarRootModel {
 
     public func baselineEvent(for draft: GridEventDraft) -> Event? {
         guard draft.kind == .edit, let id = draft.persistedEventId else { return nil }
+        if draftStore.gridDraft?.clientId == draft.clientId,
+           let baseline = draftStore.retryEventBaseline, baseline.id == id {
+            return baseline
+        }
         return loadedEvents.first { $0.id == id }
     }
 }

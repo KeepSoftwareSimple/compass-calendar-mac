@@ -75,6 +75,30 @@ final class EventMutationFailureTests: XCTestCase {
         XCTAssertTrue(model.testingVisibleRangeRefreshIsScheduled)
     }
 
+    func testRetryRetainsChangedScheduleAgainstOriginalEvent() async throws {
+        let environment = try NativeCalendarEnvironment(inMemoryDatabase: true, repositorySource: .remote)
+        let model = NativeCalendarRootModel(environment: environment)
+        let original = try StoreSampleEvents.timedEvent(id: "edit")
+        model.loadedEvents = [original]
+        let start = try XCTUnwrap(CompassDateParsing.parseInEffectiveTimeZone("2026-01-01T12:00:00Z"))
+        let draft = GridEventDraft(kind: .edit, clientId: original.id,
+            schedule: DraftSchedule(start: start, end: start.addingTimeInterval(3600), kind: .timed),
+            calendarId: original.calendarId, sourceEventId: original.id)
+        let optimistic = try XCTUnwrap(GridEventDraftMapping.optimisticEvent(from: draft, baseline: original))
+        model.draftStore.startGridDraft(activity: .keyboardEdit, draft: draft)
+        await model.persistDraftOptimistic(savedId: original.id.rawValue) {
+            try EventRepository(database: environment.database).upsert(events: [optimistic], isLocal: false)
+            throw URLError(.notConnectedToInternet)
+        }
+        let retryBaseline = model.baselineEvent(for: draft)
+        XCTAssertEqual(retryBaseline, original)
+        let retry = try XCTUnwrap(GridEventDraftMapping.replaceInput(from: draft,
+            originalCalendarId: original.calendarId, scope: .this, baseline: retryBaseline))
+        XCTAssertNotNil(retry.schedule, "The retry must resend the time change even though the cache is optimistic")
+        model.draftStore.discard()
+        XCTAssertNil(model.draftStore.retryEventBaseline)
+    }
+
     func testFailedSaveDoesNotReplaceANewerDraft() async throws {
         let model = NativeCalendarRootModel(environment: try NativeCalendarEnvironment(inMemoryDatabase: true))
         let original = GridEventDraft(clientId: EventId(rawValue: "old"),

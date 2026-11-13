@@ -239,6 +239,7 @@ extension NativeCalendarRootModel {
         let saveRevision = draftSaveRevision
         let failedDraft = draftStore.gridDraft
         let formBaseline = draftStore.formBaseline
+        let eventBaseline = failedDraft.flatMap { baselineEvent(for: $0) }
         let activity = draftStore.status.activity ?? .keyboardEdit
         draftStore.commit()
         formFieldDigitHintsVisible = false
@@ -251,7 +252,8 @@ extension NativeCalendarRootModel {
         } catch {
             guard revision == sessionRevision, !(error is CancellationError) else { return }
             if saveRevision == draftSaveRevision, draftStore.gridDraft == nil, let failedDraft {
-                draftStore.restoreFailedSave(draft: failedDraft, activity: activity, baseline: formBaseline)
+                draftStore.restoreFailedSave(draft: failedDraft, activity: activity,
+                    baseline: formBaseline, eventBaseline: eventBaseline)
             }
             reportSaveFailure(error, action: "save")
         }
