@@ -97,7 +97,10 @@ public final class EventsStore {
         return try repository.fetchAll()
     }
 
-    public func loadRange(key: EventRangeQueryKey) async throws -> [Event] {
+    public func loadRange(
+        key: EventRangeQueryKey,
+        onCachedEvents: (([Event]) -> Void)? = nil
+    ) async throws -> [Event] {
         if source == .local {
             let events = try localEvents.events(intersectingStart: key.start, end: key.end)
             try rangeCache.markLoaded(key: key)
@@ -111,6 +114,7 @@ public final class EventsStore {
             return try eventsInRange(key: key)
         }
 
+        onCachedEvents?(try eventsInRange(key: key))
         let query = EventListQuery(
             kind: "timed",
             start: key.start,
@@ -129,6 +133,7 @@ public final class EventsStore {
             // Keep the old coverage timestamp so the next load still retries.
             return try eventsInRange(key: key)
         }
+        try Task.checkCancellation()
         guard revision == remoteSessionRevision else { throw CancellationError() }
         let systemEvents = try systemCalendarEvents(for: key)
         let merged = events + systemEvents
@@ -327,13 +332,7 @@ public final class EventsStore {
     }
 
     private func eventsInRange(key: EventRangeQueryKey) throws -> [Event] {
-        let all = try repository.fetchAll()
-        return all.filter { event in
-            guard let bounds = try? EventScheduleBounds.bounds(for: event) else {
-                return false
-            }
-            return bounds.startsAt >= key.start && bounds.endsAt <= key.end
-        }
+        try repository.events(intersectingStart: key.start, end: key.end)
     }
 
     private struct RecurringReplaceSnapshot: Sendable {

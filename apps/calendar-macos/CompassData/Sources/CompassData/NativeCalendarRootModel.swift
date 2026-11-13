@@ -136,6 +136,7 @@ public final class NativeCalendarRootModel {
         didSet { syncSidebandWithLoadedEvents() }
     }
     private var refreshTask: Task<Void, Never>?
+    private var rangeRefreshRevision = 0
     var focusedEventNudgePersistTask: Task<Void, Never>?
     var focusedEventNudgePersistSerial = 0
     var focusLayoutCards: [FocusLayoutCard] = []
@@ -1057,6 +1058,8 @@ public final class NativeCalendarRootModel {
     }
 
     func refreshVisibleRange() async {
+        rangeRefreshRevision += 1
+        let refreshRevision = rangeRefreshRevision
         let revision = sessionRevision
         guard viewStore.view != .life else { return }
         let source = eventsStore.source
@@ -1069,9 +1072,19 @@ public final class NativeCalendarRootModel {
             end: range.endDate
         )
         do {
-            _ = try await eventsStore.loadRange(key: key)
-            guard revision == sessionRevision, isSignedIn || eventsStore.source == .local else { return }
-            loadedEvents = try eventsStore.fetchAllEvents()
+            let events = try await eventsStore.loadRange(key: key) { [weak self] cached in
+                guard let self, !Task.isCancelled, revision == self.sessionRevision,
+                      refreshRevision == self.rangeRefreshRevision else { return }
+                self.loadedEvents = cached
+                self.rebuildPresentation()
+            }
+            guard !Task.isCancelled, revision == sessionRevision,
+                  refreshRevision == rangeRefreshRevision,
+                  viewStore.view != .life, eventsStore.source == source,
+                  queryRange().startDate == key.start, queryRange().endDate == key.end,
+                  isSignedIn || eventsStore.source == .local else { return }
+            // Local recurrence, search, and undo share the complete expanded collection.
+            loadedEvents = source == .local ? try eventsStore.fetchAllEvents() : events
             rebuildPresentation()
             await refreshSideband()
         } catch {

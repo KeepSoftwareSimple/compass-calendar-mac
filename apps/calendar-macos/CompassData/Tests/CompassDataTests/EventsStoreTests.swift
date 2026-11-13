@@ -105,6 +105,33 @@ final class EventsStoreTests: XCTestCase {
         XCTAssertEqual(try store.coverage(for: key), .missing)
     }
 
+    func testCachedEventsAreDeliveredBeforeRemoteRequest() async throws {
+        let (store, api, repository, _, key) = try cachedRange()
+        let event = try StoreSampleEvents.timedEvent(id: "cached")
+        try repository.upsert(events: [event], isLocal: false)
+        var painted: [Event] = []
+        api.listHandler = { _ in
+            XCTAssertEqual(painted, [event])
+            return []
+        }
+        let result = try await store.loadRange(key: key) { painted = $0 }
+        XCTAssertTrue(result.isEmpty)
+    }
+
+    func testCachedRangeIncludesEventsCrossingItsBoundsAndExcludesOtherDates() async throws {
+        let (store, _, repository, cache, _) = try cachedRange()
+        let crossing = try StoreSampleEvents.timedEvent(id: "crossing")
+        let allDay = try StoreSampleEvents.allDayEvent(id: "all-day")
+        try repository.upsert(events: [crossing, allDay], isLocal: false)
+        let key = EventRangeQueryKey(scope: .day, source: .remote,
+            start: "2026-01-01T10:30:00.000Z", end: "2026-01-01T12:00:00.000Z")
+        try cache.markLoaded(key: key)
+        let events = try await store.loadRange(key: key)
+        XCTAssertEqual(Set(events.map(\.id)), Set([crossing.id, allDay.id]))
+        XCTAssertTrue(try repository.events(intersectingStart: "2026-02-01T00:00:00Z",
+            end: "2026-02-02T00:00:00Z").isEmpty)
+    }
+
     private func cachedRange() throws -> (EventsStore, MockEventsAPI, EventRepository, RangeCache, EventRangeQueryKey) {
         let database = try AppDatabase.inMemory()
         let repository = EventRepository(database: database)

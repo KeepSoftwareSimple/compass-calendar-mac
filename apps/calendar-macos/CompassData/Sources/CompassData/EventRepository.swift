@@ -83,6 +83,20 @@ public struct EventRepository: Sendable {
         try delete(ids: staleIds)
     }
 
+    /// Narrow the rows before decoding JSON. The extra civil day on either side
+    /// accommodates stored UTC offsets and all-day dates; exact overlap uses instants.
+    public func events(intersectingStart start: String, end: String) throws -> [Event] {
+        try db.read { db in
+            let rows = try EventRecord.fetchAll(db, sql: """
+                SELECT * FROM event
+                WHERE endsAt >= date(?, '-1 day') AND startsAt <= date(?, '+1 day')
+                """, arguments: [start, end])
+            return try rows.map { try EventRecordCodec.event(from: $0) }.filter {
+                EventScheduleBounds.intersectsQueryRange(event: $0, start: start, end: end)
+            }
+        }
+    }
+
     public func fetchAll() throws -> [Event] {
         try db.read { db in
             try EventRecord.fetchAll(db).map { try EventRecordCodec.event(from: $0) }
