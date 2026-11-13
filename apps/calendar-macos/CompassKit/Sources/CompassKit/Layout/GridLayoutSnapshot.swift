@@ -146,7 +146,7 @@ public struct GridLayoutSnapshot: Hashable, Sendable, Codable {
     }
 }
 
-public struct GridLayoutTimedEventInput: Sendable {
+public struct GridLayoutTimedEventInput: Equatable, Sendable {
     public var calendarId: String?
     public var colorHex: String?
     public var endDate: String
@@ -174,7 +174,7 @@ public struct GridLayoutTimedEventInput: Sendable {
     }
 }
 
-public struct GridLayoutAllDayEventInput: Sendable {
+public struct GridLayoutAllDayEventInput: Equatable, Sendable {
     public var calendarId: String?
     public var colorHex: String?
     public var endDate: String
@@ -202,7 +202,7 @@ public struct GridLayoutAllDayEventInput: Sendable {
     }
 }
 
-public struct GridLayoutScenario: Sendable {
+public struct GridLayoutScenario: Equatable, Sendable {
     public var allDayEvents: [GridLayoutAllDayEventInput]
     public var busyPeriods: [BusyPeriodInput]
     public var calendars: [CompassCalendar]
