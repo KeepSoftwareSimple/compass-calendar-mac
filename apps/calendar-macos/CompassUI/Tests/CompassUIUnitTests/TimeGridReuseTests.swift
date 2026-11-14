@@ -9,7 +9,7 @@ final class TimeGridReuseTests: XCTestCase {
         let savedZone = EffectiveTimeZone.identifier
         defer { EffectiveTimeZone.identifier = savedZone }
         EffectiveTimeZone.identifier = "UTC"
-        var state = TimeGridState(scenario: GridLayoutSnapshotFixtures.parityScenario(layoutMode: .week, visibleDateKeys: ["2026-05-17", "2026-05-18"]))
+        var state = TimeGridState(scenario: GridLayoutSnapshotFixtures.parityScenario(layoutMode: .week, visibleDateKeys: ["2026-05-20", "2026-05-21"]))
         let view = TimeGridView(state: state, theme: .lightBeach)
         view.frame = NSRect(x: 0, y: 0, width: 1000, height: 700)
         view.layoutSubtreeIfNeeded()
@@ -19,6 +19,8 @@ final class TimeGridReuseTests: XCTestCase {
         XCTAssertNotNil(header)
         XCTAssertNotNil(hour)
         state.focusedEventId = state.scenario.timedEvents.first?.eventId
+        state.referenceNow = state.referenceNow.addingTimeInterval(1)
+        state.scenario.referenceNow = state.referenceNow
         view.update(state: state, theme: .lightBeach)
         view.update(state: state, theme: .lightBeach)
         view.needsLayout = true
@@ -28,6 +30,24 @@ final class TimeGridReuseTests: XCTestCase {
 
         view.update(state: state, theme: .darkAbyss)
         XCTAssertFalse(descendants(view).contains { $0 === header })
+        XCTAssertFalse(descendants(view).contains { $0 === hour })
+    }
+
+    func testClockAdvancingToAnotherHourRefreshesLabels() {
+        let savedZone = EffectiveTimeZone.identifier
+        defer { EffectiveTimeZone.identifier = savedZone }
+        EffectiveTimeZone.identifier = "UTC"
+        var state = TimeGridState(scenario: GridLayoutSnapshotFixtures.parityScenario(
+            layoutMode: .week, visibleDateKeys: ["2026-05-20", "2026-05-21"]))
+        let view = TimeGridView(state: state, theme: .lightBeach)
+        view.frame = NSRect(x: 0, y: 0, width: 1000, height: 700)
+        view.layoutSubtreeIfNeeded()
+        view.update(state: state, theme: .lightBeach)
+        let hour = descendants(view).compactMap { $0 as? NSTextField }.first { $0.stringValue == "1 AM" }
+        XCTAssertNotNil(hour)
+        state.referenceNow = state.referenceNow.addingTimeInterval(3600)
+        state.scenario.referenceNow = state.referenceNow
+        view.update(state: state, theme: .lightBeach)
         XCTAssertFalse(descendants(view).contains { $0 === hour })
     }
 

@@ -393,7 +393,14 @@ public final class TimeGridView: NSView {
         timedContentView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: gridHeight)
         syncPinnedHeaderScrollX()
 
-        let sameHourLabels = sameTheme && previousState?.hourLabelDate == state.hourLabelDate
+        // Focus changes advance the live clock too. Chrome only needs minute precision;
+        // cards and the now line still render with the current state below.
+        let calendar = EffectiveTimeZone.calendar
+        let sameLabelMinute = previousState.map {
+            calendar.dateInterval(of: .minute, for: $0.hourLabelDate)
+                == calendar.dateInterval(of: .minute, for: state.hourLabelDate)
+        } ?? false
+        let sameHourLabels = sameTheme && sameLabelMinute
             && previousState?.effectiveTimeZone == state.effectiveTimeZone
             && previousState?.timeTravelTimeZone == state.timeTravelTimeZone
             && previousState?.hasSecondaryTimeZone == state.hasSecondaryTimeZone
@@ -410,7 +417,7 @@ public final class TimeGridView: NSView {
             && previousState?.showDayJumpPrefixes == state.showDayJumpPrefixes
             && previousState?.dayJumpUseShiftPrefix == state.dayJumpUseShiftPrefix
             && previousState?.eventJumpActiveDayKeys == state.eventJumpActiveDayKeys
-            && previousState?.referenceNow == state.referenceNow
+            && previousState.map { calendar.isDate($0.referenceNow, inSameDayAs: state.referenceNow) } == true
         if !sameHeaders {
             renderHeaders(snapshot: snapshot, headerHeight: headerHeight)
         }
