@@ -187,7 +187,8 @@ final class NativeLaunchTests: XCTestCase {
     @MainActor
     func testCommandPaletteGoToToday() {
         let app = XCUIApplication.compassUITest()
-        app.launchArguments += ["-COMPASS_FIXTURE", "demo"]
+        // Earlier launches may have persisted recent commands ahead of Today.
+        app.launchArguments += ["-COMPASS_FIXTURE", "demo", "-compass.commands.recent", "[]"]
         app.launch()
 
         let window = app.windows["Compass"]

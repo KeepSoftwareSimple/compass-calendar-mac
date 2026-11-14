@@ -31,6 +31,9 @@ describe("macOS CI contract", () => {
     expect(workflow).toContain(
       "github.event_name == 'workflow_dispatch' && inputs.strict_verify",
     );
+    const strictJob = workflow.split("\n  strict:\n")[1]?.split("\n  macos:\n")[0];
+    expect(strictJob).toContain("runs-on: macos-26-intel");
+    expect(strictJob).toContain("run: bash .github/scripts/macos-ci-display-setup.sh");
   });
 
   it("uses advanced CodeQL with path-gated Swift on macOS", () => {

@@ -62,6 +62,7 @@ final class CalendarStartupTests: XCTestCase {
         XCTAssertTrue(model.loadedEvents.contains { $0.id == event.id })
         await releaseLife.signal()
         await startup.value
+        await model.authStore.handleSessionExpired()
     }
 
     func testCancellingStartupDuringMetadataStopsEventAndPreferenceLoads() async throws {

@@ -59,7 +59,8 @@ final class DescriptionLinkHintOverlayTests: XCTestCase {
         let (container, window, _) = try DescriptionLinkHintKeyWindowFixture.makeBlurredDescriptionLinkHints(
             html: html,
             resetKey: "event",
-            frame: NSRect(x: 0, y: 0, width: 200, height: 160)
+            // Force two lines even when the platform's default font is narrower.
+            frame: NSRect(x: 0, y: 0, width: 120, height: 160)
         )
         defer {
             DescriptionLinkHintKeyWindowFixture.resetDigitHintLookupWindow()
@@ -84,6 +85,7 @@ final class DescriptionLinkHintOverlayTests: XCTestCase {
             wide.chipOriginX,
             "Chip X should change after reflow: narrow=\(narrow.diagnosticMessage) wide=\(wide.diagnosticMessage)"
         )
+        XCTAssertNotEqual(narrow.chipOriginY, wide.chipOriginY, "The narrow fixture must wrap onto another line")
     }
 
     func testLinkHintChipsRepositionAfterPrefixEditWithoutTogglingHints() throws {
@@ -115,6 +117,7 @@ final class DescriptionLinkHintOverlayTests: XCTestCase {
         let containerWidth: CGFloat
         let textContainerWidth: CGFloat
         let chipOriginX: [CGFloat]
+        let chipOriginY: [CGFloat]
         let linkMaxX: [CGFloat]
 
         var diagnosticMessage: String {
@@ -137,6 +140,7 @@ final class DescriptionLinkHintOverlayTests: XCTestCase {
             containerWidth: container.bounds.width,
             textContainerWidth: textContainer.containerSize.width,
             chipOriginX: linkHintDigitChipFrames(in: container).map(\.origin.x),
+            chipOriginY: linkHintDigitChipFrames(in: container).map(\.origin.y),
             linkMaxX: linkMaxX
         )
     }

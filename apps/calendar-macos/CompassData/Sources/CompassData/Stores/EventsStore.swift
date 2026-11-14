@@ -29,9 +29,9 @@ public final class EventsStore {
     private let eventsAPI: EventsAPIProtocol
     private let systemCalendarConnector: SystemCalendarConnector
     public private(set) var source: EventRepositorySource
+    public var onMutationFailed: ((Error) -> Void)?
     /// Runs once a create, replace, or delete has landed (web `writeAfterPreceding`
     /// reporting `wrote`). `isNewCreate` is false for undo restores.
-    public var onMutationFailed: ((Error) -> Void)?
     public var onWriteLanded: ((_ isNewCreate: Bool) -> Void)?
 
     public init(
