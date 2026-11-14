@@ -1,6 +1,6 @@
 import Foundation
 
-public struct TimeGridState: Sendable {
+public struct TimeGridState: Equatable, Sendable {
     public var layoutMode: GridLayoutMode
     public var referenceNow: Date
     public var scenario: GridLayoutScenario

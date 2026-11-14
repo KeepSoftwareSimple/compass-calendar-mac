@@ -167,7 +167,13 @@ extension NativeCalendarRootModel {
             guard revision == sessionRevision else { return }
             loadedEvents = try eventsStore.fetchAllEvents()
             rebuildPresentation()
-        } catch {}
+        } catch {
+            guard revision == sessionRevision else { return }
+            if draftStore.gridDraft == nil {
+                draftStore.startGridDraft(activity: .keyboardEdit, draft: draft)
+            }
+            reportSaveFailure(error, action: "delete")
+        }
     }
 
     private func deleteScope(from scope: ScopeEnum) -> EventDeleteScope {

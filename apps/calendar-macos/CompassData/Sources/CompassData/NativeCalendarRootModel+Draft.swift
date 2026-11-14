@@ -235,6 +235,12 @@ extension NativeCalendarRootModel {
 
     func persistDraftOptimistic(savedId: String, apply: () async throws -> Void) async {
         let revision = sessionRevision
+        draftSaveRevision += 1
+        let saveRevision = draftSaveRevision
+        let failedDraft = draftStore.gridDraft
+        let formBaseline = draftStore.formBaseline
+        let eventBaseline = failedDraft.flatMap { baselineEvent(for: $0) }
+        let activity = draftStore.status.activity ?? .keyboardEdit
         draftStore.commit()
         formFieldDigitHintsVisible = false
         do {
@@ -244,19 +250,26 @@ extension NativeCalendarRootModel {
             rebuildPresentation()
             focusEvent(eventId: savedId)
         } catch {
-            guard revision == sessionRevision else { return }
+            guard revision == sessionRevision, !(error is CancellationError) else { return }
+            if saveRevision == draftSaveRevision, draftStore.gridDraft == nil, let failedDraft {
+                draftStore.restoreFailedSave(draft: failedDraft, activity: activity,
+                    baseline: formBaseline, eventBaseline: eventBaseline)
+            }
             reportSaveFailure(error, action: "save")
         }
     }
 
-    /// Web parity: `showErrorToast`. The form is already closed, so the toast is the only signal.
+    /// Surface the failure and reconcile optimistic rows without discarding retry input.
     func reportSaveFailure(_ error: Error, action: String) {
+        guard !(error is CancellationError) else { return }
         Self.log.error("event \(action, privacy: .public) failed: \(String(describing: error), privacy: .public)")
         statusToastStore.show(id: "event-save-error", message: "Could not \(action) event. Try again.")
         if let events = try? eventsStore.fetchAllEvents() {
             loadedEvents = events
             rebuildPresentation()
         }
+        // Keep the optimistic projection while offline, then reconcile with the server.
+        scheduleRefreshVisibleRange()
     }
 
     public func saveDraft() async {

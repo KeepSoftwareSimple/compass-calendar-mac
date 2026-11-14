@@ -14,9 +14,16 @@ public final class PointerHintStore {
     private let sessionCap = 3
     /// Web `pointer-hint.store` `HINT_VISIBLE_MS` (pulse-driven auto-hide).
     private let autoHideDelay: Duration = .milliseconds(2500)
+    private let sleep: @Sendable (Duration) async throws -> Void
     private var hideTask: Task<Void, Never>?
 
-    public init() {}
+    public convenience init() {
+        self.init(sleep: { try await Task.sleep(for: $0) })
+    }
+
+    init(sleep: @escaping @Sendable (Duration) async throws -> Void) {
+        self.sleep = sleep
+    }
 
     public func pulse(
         target: PointerClickTarget,
@@ -52,11 +59,14 @@ public final class PointerHintStore {
 
     private func scheduleAutoHide() {
         hideTask?.cancel()
+        let sleep = self.sleep
+        let delay = autoHideDelay
         hideTask = Task { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(for: self.autoHideDelay)
+            do {
+                try await sleep(delay)
+            } catch { return }
             guard !Task.isCancelled else { return }
-            self.hide()
+            self?.hide()
         }
     }
 }

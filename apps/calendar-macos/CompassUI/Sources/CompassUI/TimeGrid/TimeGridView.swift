@@ -39,6 +39,10 @@ public final class TimeGridView: NSView {
     private var state: TimeGridState
     private var theme: NativeWebTheme
     private var snapshot: GridLayoutSnapshot?
+    private var renderedState: TimeGridState?
+    private var renderedTheme: NativeWebTheme?
+    private var renderedBounds: NSRect?
+    private var renderedViewportHeight: Double?
     private var lastScrollSyncHourHeight: Double?
 
     public override var isFlipped: Bool { true }
@@ -346,8 +350,13 @@ public final class TimeGridView: NSView {
     }
 
     private func relayout() {
-        let colWidths = state.resolvedColumnWidths()
         let viewportHeight = scrollView.contentView.bounds.height
+        guard renderedState != state || renderedTheme != theme || renderedBounds != bounds
+            || renderedViewportHeight != viewportHeight else { return }
+        let previousSnapshot = snapshot
+        let previousState = renderedState
+        let sameTheme = renderedTheme == theme
+        let colWidths = state.resolvedColumnWidths()
         let hourHeight: Double
         if viewportHeight > 1 {
             hourHeight = viewportHeight / Double(GridTimeConstants.timedVisibleHours)
@@ -384,8 +393,34 @@ public final class TimeGridView: NSView {
         timedContentView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: gridHeight)
         syncPinnedHeaderScrollX()
 
-        renderHourGutter(snapshot: snapshot, hourHeight: hourHeight)
-        renderHeaders(snapshot: snapshot, headerHeight: headerHeight)
+        // Focus changes advance the live clock too. Chrome only needs minute precision;
+        // cards and the now line still render with the current state below.
+        let calendar = EffectiveTimeZone.calendar
+        let sameLabelMinute = previousState.map {
+            calendar.dateInterval(of: .minute, for: $0.hourLabelDate)
+                == calendar.dateInterval(of: .minute, for: state.hourLabelDate)
+        } ?? false
+        let sameHourLabels = sameTheme && sameLabelMinute
+            && previousState?.effectiveTimeZone == state.effectiveTimeZone
+            && previousState?.timeTravelTimeZone == state.timeTravelTimeZone
+            && previousState?.hasSecondaryTimeZone == state.hasSecondaryTimeZone
+        if !sameHourLabels || previousSnapshot?.metrics.hourHeight != hourHeight {
+            renderHourGutter(snapshot: snapshot, hourHeight: hourHeight)
+        }
+        let sameHeaders = sameHourLabels && previousSnapshot?.columns == snapshot.columns
+            && previousState?.layoutMode == state.layoutMode
+            && previousState?.trackWidth == state.trackWidth
+            && previousState?.scenario.calendars == state.scenario.calendars
+            && previousState?.focusedDayColumnCalendarId == state.focusedDayColumnCalendarId
+            && previousState?.pageJumpDigitByCalendarId == state.pageJumpDigitByCalendarId
+            && previousState?.pageJumpHintsVisible == state.pageJumpHintsVisible
+            && previousState?.showDayJumpPrefixes == state.showDayJumpPrefixes
+            && previousState?.dayJumpUseShiftPrefix == state.dayJumpUseShiftPrefix
+            && previousState?.eventJumpActiveDayKeys == state.eventJumpActiveDayKeys
+            && previousState.map { calendar.isDate($0.referenceNow, inSameDayAs: state.referenceNow) } == true
+        if !sameHeaders {
+            renderHeaders(snapshot: snapshot, headerHeight: headerHeight)
+        }
         renderAllDayColumns(snapshot: snapshot, allDayHeight: allDayHeight, headerHeight: headerHeight)
         renderTimedGrid(snapshot: snapshot, hourHeight: hourHeight, gridHeight: gridHeight)
         renderCards(snapshot: snapshot)
@@ -393,6 +428,10 @@ public final class TimeGridView: NSView {
         clampWeekHorizontalScrollOrigin()
         syncPinnedHeaderScrollX()
         syncScrollToNowAfterViewportHourHeightChange(hourHeight: hourHeight, viewportHeight: viewportHeight)
+        renderedState = state
+        renderedTheme = theme
+        renderedBounds = bounds
+        renderedViewportHeight = viewportHeight
     }
 
     /// Web `getMinuteHeight(clientHeight)`: scroll targets depend on viewport, not a fixed 60px hour.

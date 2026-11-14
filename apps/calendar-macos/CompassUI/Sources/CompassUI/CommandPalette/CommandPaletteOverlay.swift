@@ -29,9 +29,18 @@ public struct CommandPaletteOverlay: View {
             GeometryReader { geometry in
                 let resultsMaxHeight = geometry.size.height * Self.resultsMaxViewportFraction
                 ZStack {
-                    theme.panelBackdropColor
-                        .ignoresSafeArea()
-                        .onTapGesture { paletteStore.close() }
+                    Button {
+                        paletteStore.close()
+                    } label: {
+                        theme.panelBackdropColor
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .focusable(false)
+                    .ignoresSafeArea()
+                    .accessibilityLabel("Close command palette")
+                    .accessibilityIdentifier("compass-native-command-palette-backdrop")
 
                     VStack(spacing: 0) {
                         Color.clear.frame(height: geometry.size.height * Self.topInsetViewportFraction)

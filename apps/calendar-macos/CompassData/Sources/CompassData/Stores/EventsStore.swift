@@ -29,6 +29,7 @@ public final class EventsStore {
     private let eventsAPI: EventsAPIProtocol
     private let systemCalendarConnector: SystemCalendarConnector
     public private(set) var source: EventRepositorySource
+    public var onMutationFailed: ((Error) -> Void)?
     /// Runs once a create, replace, or delete has landed (web `writeAfterPreceding`
     /// reporting `wrote`). `isNewCreate` is false for undo restores.
     public var onWriteLanded: ((_ isNewCreate: Bool) -> Void)?
@@ -97,7 +98,19 @@ public final class EventsStore {
         return try repository.fetchAll()
     }
 
-    public func loadRange(key: EventRangeQueryKey) async throws -> [Event] {
+    func searchEvents(_ query: EventListQuery) async throws -> [Event] {
+        guard remoteSessionReady else { throw CancellationError() }
+        let revision = remoteSessionRevision
+        let events = try await eventsAPI.list(query)
+        try Task.checkCancellation()
+        guard revision == remoteSessionRevision else { throw CancellationError() }
+        return events
+    }
+
+    public func loadRange(
+        key: EventRangeQueryKey,
+        onCachedEvents: (([Event]) -> Void)? = nil
+    ) async throws -> [Event] {
         if source == .local {
             let events = try localEvents.events(intersectingStart: key.start, end: key.end)
             try rangeCache.markLoaded(key: key)
@@ -111,6 +124,7 @@ public final class EventsStore {
             return try eventsInRange(key: key)
         }
 
+        onCachedEvents?(try eventsInRange(key: key))
         let query = EventListQuery(
             kind: "timed",
             start: key.start,
@@ -129,6 +143,7 @@ public final class EventsStore {
             // Keep the old coverage timestamp so the next load still retries.
             return try eventsInRange(key: key)
         }
+        try Task.checkCancellation()
         guard revision == remoteSessionRevision else { throw CancellationError() }
         let systemEvents = try systemCalendarEvents(for: key)
         let merged = events + systemEvents
@@ -193,7 +208,10 @@ public final class EventsStore {
             onWriteLanded?(input.restore != true)
             let settled = try EventMapping.event(from: response)
             try repository.upsert(events: [settled], isLocal: false)
-        } catch {}
+        } catch {
+            guard revision == remoteSessionRevision else { return }
+            onMutationFailed?(error)
+        }
     }
 
     /// API settle only; optimistic row must already be removed locally.
@@ -201,7 +219,13 @@ public final class EventsStore {
         beginMutation()
         defer { endMutation() }
         guard source != .local else { return }
-        try? await eventsAPI.delete(id: id, scope: scope)
+        let revision = remoteSessionRevision
+        do {
+            try await eventsAPI.delete(id: id, scope: scope)
+        } catch {
+            guard revision == remoteSessionRevision else { return }
+            onMutationFailed?(error)
+        }
     }
 
     public func createOptimistic(
@@ -229,7 +253,8 @@ public final class EventsStore {
             let settled = try EventMapping.event(from: response)
             try repository.upsert(events: [settled], isLocal: false)
         } catch {
-            // Locked desktop decision: no rollback; settle invalidates ranges.
+            guard revision == remoteSessionRevision else { throw CancellationError() }
+            throw error
         }
     }
 
@@ -263,9 +288,10 @@ public final class EventsStore {
         onOptimisticCacheUpdated?(try fetchAllEvents())
         // Replace returns a command acknowledgement, not an authoritative event.
         // Preserve the optimistic projection until the invalidated range is read.
-        if (try? await eventsAPI.replace(id: id, input: input)) != nil {
-            onWriteLanded?(false)
-        }
+        let revision = remoteSessionRevision
+        _ = try await eventsAPI.replace(id: id, input: input)
+        guard revision == remoteSessionRevision else { throw CancellationError() }
+        onWriteLanded?(false)
     }
 
     public func deleteOptimistic(id: EventId, scope: EventDeleteScope) async throws {
@@ -281,10 +307,10 @@ public final class EventsStore {
         }
         let snapshot = try recurringDeleteSnapshot(targetId: id)
         try applyDeleteCacheUpdate(id: id, scope: scope, snapshot: snapshot)
-        do {
-            try await eventsAPI.delete(id: id, scope: scope)
-            onWriteLanded?(false)
-        } catch {}
+        let revision = remoteSessionRevision
+        try await eventsAPI.delete(id: id, scope: scope)
+        guard revision == remoteSessionRevision else { throw CancellationError() }
+        onWriteLanded?(false)
     }
 
     public func rsvpOptimistic(
@@ -299,9 +325,9 @@ public final class EventsStore {
             return
         }
         try repository.upsert(events: [optimisticEvent], isLocal: false)
-        do {
-            try await eventsAPI.rsvp(id: id, responseStatus: responseStatus, scope: scope)
-        } catch {}
+        let revision = remoteSessionRevision
+        try await eventsAPI.rsvp(id: id, responseStatus: responseStatus, scope: scope)
+        guard revision == remoteSessionRevision else { throw CancellationError() }
     }
 
     private func beginMutation() {
@@ -327,13 +353,7 @@ public final class EventsStore {
     }
 
     private func eventsInRange(key: EventRangeQueryKey) throws -> [Event] {
-        let all = try repository.fetchAll()
-        return all.filter { event in
-            guard let bounds = try? EventScheduleBounds.bounds(for: event) else {
-                return false
-            }
-            return bounds.startsAt >= key.start && bounds.endsAt <= key.end
-        }
+        try repository.events(intersectingStart: key.start, end: key.end)
     }
 
     private struct RecurringReplaceSnapshot: Sendable {

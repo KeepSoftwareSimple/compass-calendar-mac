@@ -344,14 +344,23 @@ extension NativeCalendarRootModel {
 
     public func schedulePaletteEventSearch() {
         let query = trimmedPaletteQuery
-        resetPaletteEventSearch()
-        guard query.count >= EventTitleSearch.minQueryLength else { return }
+        paletteSearchTask?.cancel()
+        paletteSearchTask = nil
+        guard commandPaletteStore.isOpen, query.count >= EventTitleSearch.minQueryLength else {
+            resetPaletteEventSearch()
+            return
+        }
+        // Refilter the previous remote snapshots immediately rather than flashing empty rows.
+        acceptPaletteSearchResults(Array(paletteEventSearchEvents.values), query: query)
+        guard isSignedIn else { return }
         let revision = sessionRevision
         paletteSearchTask = Task { [weak self] in
             guard let self else { return }
-            let local = paletteEventHits(query: query)
-            self.setPaletteEventSearchHits(local)
-            guard isSignedIn, !Task.isCancelled else { return }
+            do {
+                try await Task.sleep(for: .milliseconds(180))
+            } catch { return }
+            guard isSignedIn, !Task.isCancelled, revision == sessionRevision,
+                  commandPaletteStore.isOpen, query == trimmedPaletteQuery else { return }
             let window = EventTitleSearch.searchWindow(now: referenceNow)
             let range = DateRange(start: window.start, end: window.end)
             let listQuery = EventListQuery(
@@ -360,7 +369,7 @@ extension NativeCalendarRootModel {
                 end: range.endISO,
                 q: query)
             do {
-                let remoteEvents = try await environment.apiClient.events.list(listQuery)
+                let remoteEvents = try await eventsStore.searchEvents(listQuery)
                 guard revision == sessionRevision, isSignedIn, !Task.isCancelled else { return }
                 self.acceptPaletteSearchResults(remoteEvents, query: query)
             } catch {}

@@ -34,6 +34,7 @@ public final class DraftStore {
     public private(set) var quickTimeDigits: String = ""
     /// Snapshot when the form opened, for unsaved-changes detection.
     public private(set) var formBaseline: GridEventDraft?
+    private(set) var retryEventBaseline: Event?
 
     public init() {}
 
@@ -44,10 +45,12 @@ public final class DraftStore {
         gridDraft = nil
         quickTimeDigits = ""
         formBaseline = nil
+        retryEventBaseline = nil
     }
 
     public func startGridDraft(activity: DraftNudgeActivity, draft: GridEventDraft) {
         gridDraft = draft
+        retryEventBaseline = nil
         let formOpen = opensFormOnStart.contains(activity)
         status = DraftStatus(
             activity: activity,
@@ -57,6 +60,15 @@ public final class DraftStore {
         if formOpen {
             formBaseline = draft
         }
+    }
+
+    func restoreFailedSave(
+        draft: GridEventDraft, activity: DraftNudgeActivity,
+        baseline: GridEventDraft?, eventBaseline: Event?
+    ) {
+        startGridDraft(activity: activity, draft: draft)
+        if status.isFormOpen { formBaseline = baseline }
+        retryEventBaseline = eventBaseline
     }
 
     public func setGridDraft(_ draft: GridEventDraft?) {

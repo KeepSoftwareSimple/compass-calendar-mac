@@ -256,6 +256,7 @@ final class EventsStoreRecurringTests: XCTestCase {
         )
         try repository.upsert(events: [split], isLocal: false)
         let input = try replaceInput(scope: .this)
+        mockAPI.replaceHandler = { _, _ in try StoreSampleEvents.response(from: split) }
         try await store.replaceOptimistic(id: split.id, input: input, optimisticEvent: split)
         XCTAssertEqual(mockAPI.lastReplaceScope, .this)
     }

@@ -210,7 +210,11 @@ extension NativeCalendarRootModel {
         let snapshot = event
         do {
             try await eventsStore.deleteOptimistic(id: event.id, scope: scope)
-        } catch {}
+        } catch {
+            guard revision == sessionRevision else { return }
+            reportSaveFailure(error, action: "delete")
+            return
+        }
         guard revision == sessionRevision else { return }
         loadedEvents.removeAll { $0.id == event.id }
         refreshLoadedEvents()
@@ -365,6 +369,7 @@ extension NativeCalendarRootModel {
     }
 
     func replaceEvent(with event: Event, scheduleBaseline: Event? = nil) async {
+        let revision = sessionRevision
         guard case .details(let details) = event.content else { return }
         let reference = scheduleBaseline ?? loadedEvents.first { $0.id == event.id }
         let scheduleUnchanged =
@@ -380,10 +385,12 @@ extension NativeCalendarRootModel {
             scope: .this)
         do {
             try await eventsStore.replaceOptimistic(id: event.id, input: input, optimisticEvent: event)
+            guard revision == sessionRevision else { return }
             refreshLoadedEvents()
             rebuildPresentation()
         } catch {
-            statusToastStore.show(id: "undo-status", message: "Could not restore event")
+            guard revision == sessionRevision else { return }
+            reportSaveFailure(error, action: "restore")
         }
     }
 

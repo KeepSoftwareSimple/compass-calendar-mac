@@ -94,6 +94,7 @@ final class CommandPaletteActionsTests: XCTestCase {
         let ids = model.filteredPaletteSections().flatMap(\.items).map(\.id)
         XCTAssertEqual(ids.count, Set(ids).count)
         XCTAssertTrue(ids.contains("recent-today"))
+        XCTAssertEqual(model.selectedPaletteItemId, "recent-today")
         model.commandPaletteStore.select(commandId: "recent-today")
         model.activatePaletteSelection()
         XCTAssertFalse(model.commandPaletteStore.isOpen)

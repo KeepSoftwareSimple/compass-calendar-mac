@@ -7,6 +7,7 @@ final class MockEventsAPI: EventsAPIProtocol, @unchecked Sendable {
     var createHandler: ((CreateEventInput) async throws -> EventResponseEvent)?
     var replaceHandler: ((EventId, ReplaceEventInput) async throws -> EventResponseEvent)?
     var deleteHandler: ((EventId, EventDeleteScope) async throws -> Void)?
+    var rsvpHandler: (() async throws -> Void)?
     private(set) var lastReplaceScope: ScopeEnum?
     private(set) var lastDeleteScope: EventDeleteScope?
 
@@ -38,16 +39,20 @@ final class MockEventsAPI: EventsAPIProtocol, @unchecked Sendable {
         lastDeleteScope = nil
     }
 
-    func rsvp(id: EventId, responseStatus: ResponseStatusEnum, scope: String) async throws {}
+    func rsvp(id: EventId, responseStatus: ResponseStatusEnum, scope: String) async throws {
+        try await rsvpHandler?()
+    }
 }
 
 final class MockUserAPI: HiddenEventsRemoteClient, @unchecked Sendable {
     var hiddenIds: [String] = []
+    var hiddenIdsHandler: (() async throws -> [String])?
     var setHiddenError: Error?
     var setHiddenHandler: ((SetEventHiddenInput) async throws -> [String])?
 
     func hiddenEventIds() async throws -> [String] {
-        hiddenIds
+        if let hiddenIdsHandler { return try await hiddenIdsHandler() }
+        return hiddenIds
     }
 
     func setHiddenEvents(_ input: SetEventHiddenInput) async throws -> [String] {
