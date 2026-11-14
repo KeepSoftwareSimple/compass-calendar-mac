@@ -32,6 +32,7 @@ final class CommandPaletteKeyboardTests: XCTestCase {
             window.typeKey("k", modifierFlags: [.command])
             let palette = window.descendants(matching: .any)["compass-native-command-palette"]
             XCTAssertTrue(palette.waitForExistence(timeout: 8))
+            XCTAssertTrue(window.buttons["compass-native-command-palette-backdrop"].exists)
             let evidence = XCTAttachment(screenshot: window.screenshot())
             evidence.name = "Command palette modal backdrop, \(theme)"
             evidence.lifetime = .keepAlways
