@@ -4,6 +4,23 @@ import XCTest
 
 @MainActor
 final class EventMutationFailureTests: XCTestCase {
+    func testEditFailureFromPreviousSessionDoesNotShowAnErrorInTheNewSession() async throws {
+        let api = MockEventsAPI()
+        let environment = try NativeCalendarEnvironment(inMemoryDatabase: true,
+            sessionStore: MemorySessionStore(tokens: nil), eventsAPI: api, repositorySource: .remote)
+        let model = NativeCalendarRootModel(environment: environment)
+        await model.authStore.bootstrap(forceDemoSignedIn: true)
+        let event = try StoreSampleEvents.timedEvent(id: "previous-session")
+        try EventRepository(database: environment.database).upsert(events: [event], isLocal: false)
+        model.loadedEvents = [event]
+        api.replaceHandler = { _, _ in
+            await model.authStore.handleSessionExpired()
+            throw URLError(.notConnectedToInternet)
+        }
+        await model.replaceEvent(with: event)
+        XCTAssertNil(model.statusToastStore.message)
+    }
+
     func testReplaceDeleteAndRsvpFailuresPropagateAndInvalidate() async throws {
         let api = MockEventsAPI()
         api.replaceHandler = { _, _ in throw URLError(.notConnectedToInternet) }
