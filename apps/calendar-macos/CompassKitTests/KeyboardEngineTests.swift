@@ -304,5 +304,6 @@ final class KeyboardEngineTests: XCTestCase {
         XCTAssertEqual(PointerHintResolver.primaryShortcut(for: .timedSlot), .createTypedTime)
         XCTAssertEqual(PointerHintResolver.primaryShortcut(for: .hoverHunt), .focusPageJump)
         XCTAssertTrue(PointerHintResolver.teachingShortcutIds(for: .eventCard).contains(.focusShiftHold))
+        XCTAssertTrue(PointerHintResolver.teachingShortcutIds(for: .eventCard).contains(.editMenu))
     }
 }
