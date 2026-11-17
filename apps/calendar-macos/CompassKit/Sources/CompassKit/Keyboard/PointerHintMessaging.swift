@@ -39,7 +39,7 @@ public enum PointerHintMessaging {
 
         let template: String = switch target {
         case .eventCard:
-            "Press {0} to open. Hold {1} to jump to any event."
+            "Press {0} to open, or {1} for the menu. Hold {2} to jump to any event."
         case .timedSlot:
             if let slotClick {
                 "Type \(slotClick.timeKey) to create at \(slotClick.timeLabel), or press {1}."

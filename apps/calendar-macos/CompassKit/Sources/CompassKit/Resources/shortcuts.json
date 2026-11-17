@@ -470,6 +470,7 @@
     {
       "id": "edit-menu",
       "keys": [
+        "Space",
         "."
       ],
       "label": "Open event menu",
@@ -1004,6 +1005,7 @@
       "V"
     ],
     "edit-menu": [
+      "Space",
       "."
     ],
     "edit-hide": [

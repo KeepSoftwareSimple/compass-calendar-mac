@@ -38,7 +38,7 @@ public enum PointerHintResolver {
     public static func teachingShortcutIds(for target: PointerClickTarget) -> [ShortcutId] {
         switch target {
         case .eventCard:
-            return [.editOpen, .focusShiftHold]
+            return [.editOpen, .editMenu, .focusShiftHold]
         case .timedSlot:
             return [.createTypedTime, .createTimed]
         case .allDaySlot:

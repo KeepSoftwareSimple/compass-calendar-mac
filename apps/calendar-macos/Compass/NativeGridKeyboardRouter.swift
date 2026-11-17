@@ -841,6 +841,20 @@ final class NativeGridKeyboardRouter {
             }
         }
 
+        if keyEvent.modifiers.isEmpty, isSpaceKey(keyEvent.key) {
+            if model.viewStore.view == .life {
+                return false
+            }
+            if model.draftStore.status.activity == .pastePlace {
+                return true
+            }
+            if model.draftStore.gridDraft != nil || model.focusStore.focusedEventId != nil {
+                model.openEventMenu(fromKeyboard: true)
+                model.recordShortcut(.editMenu)
+                return true
+            }
+        }
+
         if keyEvent.key == .named(.enter), keyEvent.modifiers.isEmpty {
             if model.viewStore.view == .life {
                 return false
